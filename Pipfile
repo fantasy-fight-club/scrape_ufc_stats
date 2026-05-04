@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+beautifulsoup4 = "==4.12.3"
+requests = "==2.32.4"
+pandas = "==2.2.3"
+numpy = "==1.26.4"
+pyyaml = "==6.0.2"
+tqdm = "==4.66.5"
+urllib3 = ">=2.5.0"
+ipywidgets = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.14"

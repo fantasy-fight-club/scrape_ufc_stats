@@ -42,7 +42,7 @@ totals_column_names:
   - SUB.ATT
   - REV.
   - CTRL
- 
+
 # column names for extracted significant strikes
 significant_strikes_column_names:
   - ROUND
@@ -77,6 +77,9 @@ fight_stats_column_names:
   - DISTANCE
   - CLINCH
   - GROUND
+  - EVENT_URL
+  - FIGHT_URL
+  - FIGHTER_URL
 
 # column names for fighter details
 fighter_details_column_names:
@@ -94,5 +97,3 @@ fighter_tott_column_names:
   - STANCE
   - DOB
   - URL
-
-

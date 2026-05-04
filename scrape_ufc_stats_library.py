@@ -385,7 +385,7 @@ def convert_fight_stats_to_df(clean_fighter_stats: List[List[str]], totals_colum
 
 
 # combine fighter stats into one
-def combine_fighter_stats_dfs(fighter_a_stats_df: pd.DataFrame, fighter_b_stats_df: pd.DataFrame, soup: BeautifulSoup) -> pd.DataFrame:
+def combine_fighter_stats_dfs(fighter_a_stats_df: pd.DataFrame, fighter_b_stats_df: pd.DataFrame, soup: BeautifulSoup, fight_url: str, event_url: str) -> pd.DataFrame:
     '''
     concat both fighter's stats into one df
     create new event and bout column as a key
@@ -395,6 +395,8 @@ def combine_fighter_stats_dfs(fighter_a_stats_df: pd.DataFrame, fighter_b_stats_
     fighter_a_stats_df (df): a df output from convert_fight_stats_to_df()
     fighter_b_stats_df (df): a df output from convert_fight_stats_to_df()
     soup (html): output of get_soup() parser
+    fight_url (str): url of the fight
+    event_url (str): url of the event
 
     returns
     a dataframe of stats for the fight
@@ -408,12 +410,21 @@ def combine_fighter_stats_dfs(fighter_a_stats_df: pd.DataFrame, fighter_b_stats_
 
     # create empty list to store fighters' names
     fighters_names = []
-    # parse fighters' name from soup
+    fighter_urls = []
+    # parse fighters' name and url from soup
     for tag in soup.find_all('a', class_='b-link b-fight-details__person-link'):
         fighters_names.append(tag.text.strip())
+        fighter_urls.append(tag['href'])
 
     # get name of bout with using fighters' names
     fight_stats['BOUT'] = ' vs. '.join(fighters_names)
+
+    # map each fighter row to their URL
+    fighter_url_map = dict(zip(fighters_names, fighter_urls))
+    fight_stats['FIGHTER_URL'] = fight_stats['FIGHTER'].map(fighter_url_map)
+
+    fight_stats['FIGHT_URL'] = fight_url
+    fight_stats['EVENT_URL'] = event_url
 
     # reorder columns
     fight_stats = move_columns(fight_stats, ['EVENT', 'BOUT'], 'ROUND', 'before')
@@ -424,7 +435,7 @@ def combine_fighter_stats_dfs(fighter_a_stats_df: pd.DataFrame, fighter_b_stats_
 
 
 # parse and organise fight results and fight stats
-def parse_organise_fight_results_and_stats(soup: BeautifulSoup, url: str, fight_results_column_names: List[str], totals_column_names: List[str], significant_strikes_column_names: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def parse_organise_fight_results_and_stats(soup: BeautifulSoup, url: str, event_url: str, fight_results_column_names: List[str], totals_column_names: List[str], significant_strikes_column_names: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     '''
     parse and organise fight results and fight stats from soup
     this function combines other functions that parse fight results and stats into one
@@ -433,6 +444,7 @@ def parse_organise_fight_results_and_stats(soup: BeautifulSoup, url: str, fight_
     arguments:
     soup (html): output of get_soup() parser
     url (str): url of fight
+    event_url (str): url of the event
     fight_results_df (df): an df
     fight_results_column_names (list): list of column names for fight results
     fight_stats_df (df):
@@ -463,7 +475,7 @@ def parse_organise_fight_results_and_stats(soup: BeautifulSoup, url: str, fight_
     fighter_a_stats_df = convert_fight_stats_to_df(fighter_a_stats_clean, totals_column_names, significant_strikes_column_names)
     fighter_b_stats_df = convert_fight_stats_to_df(fighter_b_stats_clean, totals_column_names, significant_strikes_column_names)
     # combine fighter stats into one
-    fight_stats_df = combine_fighter_stats_dfs(fighter_a_stats_df, fighter_b_stats_df, soup)
+    fight_stats_df = combine_fighter_stats_dfs(fighter_a_stats_df, fighter_b_stats_df, soup, url, event_url)
 
     # return
     return fight_results_df, fight_stats_df
