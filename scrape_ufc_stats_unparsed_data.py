@@ -135,6 +135,14 @@ if unparsed_events:
     # define list of urls of fights to parse
     list_of_unparsed_fight_details_urls = list(unparsed_fight_details_df['URL'])
 
+    # build fight_url -> event_url lookup
+    fight_to_event_url = dict(
+        unparsed_fight_details_df.merge(
+            updated_event_details_df[['EVENT', 'URL']].rename(columns={'URL': 'EVENT_URL'}),
+            on='EVENT'
+        , how="inner", validate="many_to_many")[['URL', 'EVENT_URL']].values
+    )
+
     # create empty df to store fight results
     unparsed_fight_results_df = pd.DataFrame(columns=config['fight_results_column_names'])
     # create empty df to store fight stats
@@ -145,10 +153,14 @@ if unparsed_events:
         # get soup
         soup = LIB.get_soup(url)
 
+        # get event url for this fight
+        event_url = fight_to_event_url.get(url, '')
+
         # parse fight results and fight stats
         fight_results_df, fight_stats_df = LIB.parse_organise_fight_results_and_stats(
             soup,
             url,
+            event_url,
             config['fight_results_column_names'],
             config['totals_column_names'],
             config['significant_strikes_column_names']
