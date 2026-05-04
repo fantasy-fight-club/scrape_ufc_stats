@@ -107,7 +107,7 @@ if unparsed_events:
         soup = LIB.get_soup(url)
 
         # parse fight links
-        fight_details_df = LIB.parse_fight_details(soup)
+        fight_details_df = LIB.parse_fight_details(soup, url)
 
         # concat fight details to parsed fight details
         # concat update fight details to the top of existing df
@@ -137,10 +137,7 @@ if unparsed_events:
 
     # build fight_url -> event_url lookup
     fight_to_event_url = dict(
-        unparsed_fight_details_df.merge(
-            updated_event_details_df[['EVENT', 'URL']].rename(columns={'URL': 'EVENT_URL'}),
-            on='EVENT'
-        , how="inner", validate="many_to_many")[['URL', 'EVENT_URL']].values
+        unparsed_fight_details_df[['URL', 'EVENT_URL']].values
     )
 
     # create empty df to store fight results

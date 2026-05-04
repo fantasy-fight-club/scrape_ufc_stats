@@ -93,7 +93,7 @@ def parse_event_details(soup: BeautifulSoup) -> pd.DataFrame:
 
 
 # parse fight details
-def parse_fight_details(soup: BeautifulSoup) -> pd.DataFrame:
+def parse_fight_details(soup: BeautifulSoup, event_url: str) -> pd.DataFrame:
     '''
     parse fight details from soup
     includes urls, and fights
@@ -137,6 +137,7 @@ def parse_fight_details(soup: BeautifulSoup) -> pd.DataFrame:
     fight_details_df = pd.DataFrame({'BOUT':fights_in_event, 'URL':fight_urls})
     # create event column as key
     fight_details_df['EVENT'] = soup.find('h2', class_='b-content__title').text.strip()
+    fight_details_df['EVENT_URL'] = event_url
     # reorder columns
     fight_details_df = move_columns(fight_details_df, ['EVENT'], 'BOUT', 'before')
 
@@ -180,7 +181,12 @@ def parse_fight_results(soup: BeautifulSoup) -> List[str]:
             fight_results.append(i_text.text)
 
     # parse weightclass
-    fight_results.append(soup.find('div', class_='b-fight-details__fight-head').text)
+    fight_head = soup.find('div', class_='b-fight-details__fight-head')
+    fight_results.append(fight_head.text)
+
+    # parse if fight is title or non-title
+    is_title = fight_head.find('img') is not None or 'title' in fight_head.text.lower()
+    fight_results.append('IS TITLE:' + str(is_title))
 
     # parse win method
     fight_results.append(soup.find('i', class_='b-fight-details__text-item_first').text)
@@ -461,6 +467,7 @@ def parse_organise_fight_results_and_stats(soup: BeautifulSoup, url: str, event_
     fight_results = parse_fight_results(soup)
     # append fight url 
     fight_results.append('URL:'+url)
+    fight_results.append('EVENT_URL:'+event_url)
     # organise fight results
     fight_results_df = organise_fight_results(fight_results, fight_results_column_names)
 
