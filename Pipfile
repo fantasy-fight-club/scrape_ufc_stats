@@ -12,6 +12,7 @@ pyyaml = "==6.0.2"
 tqdm = "==4.66.5"
 urllib3 = ">=2.5.0"
 ipywidgets = "*"
+jupyterlab = "*"
 
 [dev-packages]
 

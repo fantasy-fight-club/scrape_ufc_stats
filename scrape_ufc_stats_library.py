@@ -121,20 +121,37 @@ def parse_fight_details(soup: BeautifulSoup, event_url: str) -> pd.DataFrame:
 
     # create empty list to store fights
     fights_in_event = []
+    red_fighters = []
+    blue_fighters = []
+    red_fighter_urls = []
+    blue_fighter_urls = []
     # loop through each fight url
     for url in fight_urls:
         # get soup from url
         soup_fight = get_soup(url)
-        # create empty list to store fighters' names
-        fighters_names = []
-        # parse fighters' name from soup
-        for tag in soup_fight.find_all('a', class_='b-link b-fight-details__person-link'):
-            fighters_names.append(tag.text.strip())
+        fighter_links = soup_fight.find_all('a', class_='b-link b-fight-details__person-link')
+
+        # parse fighters' name and url from soup
+        fighters_names = [tag.text.strip() for tag in fighter_links]
+        fighters_urls = [tag['href'] for tag in fighter_links]
+
         # join fighters name into one, e.g. fighter_a vs. fighter_b
         fights_in_event.append(' vs. '.join(fighters_names))
+        red_fighters.append(fighters_names[0] if len(fighters_names) > 0 else '')
+        blue_fighters.append(fighters_names[1] if len(fighters_names) > 1 else '')
+        red_fighter_urls.append(fighters_urls[0] if len(fighters_urls) > 0 else '')
+        blue_fighter_urls.append(fighters_urls[1] if len(fighters_urls) > 1 else '')
     
     # create df to store fights
-    fight_details_df = pd.DataFrame({'BOUT':fights_in_event, 'URL':fight_urls})
+    fight_details_df = pd.DataFrame({
+        'BOUT':fights_in_event,
+        'RED FIGHTER':red_fighters,
+        'BLUE FIGHTER':blue_fighters,
+        'RED_FIGHTER_URL':red_fighter_urls,
+        'BLUE_FIGHTER_URL':blue_fighter_urls,
+        'URL':fight_urls
+    })
+
     # create event column as key
     fight_details_df['EVENT'] = soup.find('h2', class_='b-content__title').text.strip()
     fight_details_df['EVENT_URL'] = event_url
@@ -172,7 +189,8 @@ def parse_fight_results(soup: BeautifulSoup) -> List[str]:
     fight_results.append(soup.find('h2', class_='b-content__title').text)
 
     # parse fighters
-    for tag in soup.find_all('a', class_='b-link b-fight-details__person-link'):
+    fighter_links = soup.find_all('a', class_='b-link b-fight-details__person-link')
+    for tag in fighter_links:
         fight_results.append(tag.text.strip())
 
     # parse outcome as either w for win or l for loss
@@ -201,6 +219,12 @@ def parse_fight_results(soup: BeautifulSoup) -> List[str]:
 
     # parse details
     fight_results.append(remaining_results[1].get_text())
+
+    # append individual red/blue fighter names and urls
+    fight_results.append('RED FIGHTER:' + (fighter_links[0].text.strip() if len(fighter_links) > 0 else ''))
+    fight_results.append('BLUE FIGHTER:' + (fighter_links[1].text.strip() if len(fighter_links) > 1 else ''))
+    fight_results.append('RED_FIGHTER_URL:' + (fighter_links[0]['href'] if len(fighter_links) > 0 else ''))
+    fight_results.append('BLUE_FIGHTER_URL:' + (fighter_links[1]['href'] if len(fighter_links) > 1 else ''))
 
     # clean each element in the list, removing '\n' and '  ' 
     fight_results = [text.replace('\n', '').replace('  ', '') for text in fight_results]

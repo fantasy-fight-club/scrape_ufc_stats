@@ -13,6 +13,10 @@ fighter_tott_file_name: ufc_fighter_tott.csv
 fight_details_column_names:
   - EVENT
   - BOUT
+  - RED FIGHTER
+  - BLUE FIGHTER
+  - RED_FIGHTER_URL
+  - BLUE_FIGHTER_URL
   - URL
   - EVENT_URL
 
@@ -29,6 +33,10 @@ fight_results_column_names:
   - TIME FORMAT
   - REFEREE
   - DETAILS
+  - RED FIGHTER
+  - BLUE FIGHTER
+  - RED_FIGHTER_URL
+  - BLUE_FIGHTER_URL
   - URL
   - EVENT_URL
 
