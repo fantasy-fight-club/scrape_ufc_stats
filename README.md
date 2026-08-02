@@ -1,6 +1,6 @@
 # Scrape UFC Stats (Forked)
 
-Rescraped on 2026-05-04 and added URLs to the stats csv so they can be linked without using names
+Rescraped on 2026-08-01 and added URLs to the stats csv so they can be linked without using names
 
 Scrape all available UFC events data, fights stats, and fighter details from [ufcstats.com](http://ufcstats.com/) and save in CSV format.
 
