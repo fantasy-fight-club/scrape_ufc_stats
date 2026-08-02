@@ -28,9 +28,12 @@ def get_soup(url: str) -> BeautifulSoup:
     returns:
     soup
     '''
+
+    # must update this from browser to avoid bot detection
+    fmc = '1785621843.e9e7d8c6d15c5477e8f8a61ed7b439f34bec5dbf406040ca9ef11bd36eb675ea'
     
     # get page of url
-    page = requests.get(url)
+    page = requests.get(url, cookies={'_fmc': fmc})
     # create soup
     soup = BeautifulSoup(page.content, 'html.parser')
 
@@ -570,11 +573,26 @@ def parse_fighter_details(soup: BeautifulSoup, fighter_details_column_names: Lis
         # each tag will have three urls that are duplicated
         fighter_urls.append(tag['href'])
 
+    # parse W, L, D, BELT
+    # these columns don't have anchor tags, so pull straight from the table rows
+    wins, losses, draws, belts = [], [], [], []
+    for row in soup.find_all('tr', class_='b-statistics__table-row'):
+        cols = row.find_all('td', class_='b-statistics__table-col')
+        if len(cols) < 10:
+            continue
+        wins.append(cols[7].text.strip())
+        losses.append(cols[8].text.strip())
+        draws.append(cols[9].text.strip())
+        belts.append(str(cols[10].find('img') is not None))
+
+    assert len(wins) == len(fighter_names[0::3]) == len(fighter_urls[0::3]), \
+        f"length mismatch: names={len(fighter_names[0::3])}, urls={len(fighter_urls[0::3])}, wld={len(wins)}"
+
     # zip fighter's first name, last name, nickname, and url into a list of tuples
     # zip items in sets of threes
     # e.g. ('Tom', 'Aaron', '', 'http://ufcstats.com/fighter-details/93fe7332d16c6ad9')
     # if there is no first, last, or nickname, the field will be left blank
-    fighter_details = list(zip(fighter_names[0::3], fighter_names[1::3], fighter_names[2::3], fighter_urls[0::3]))
+    fighter_details = list(zip(fighter_names[0::3], fighter_names[1::3], fighter_names[2::3], wins, losses, draws, belts, fighter_urls[0::3]))
 
     # convert list of tuples to a dataframe
     fighter_details_df = pd.DataFrame(fighter_details, columns=fighter_details_column_names)

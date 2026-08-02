@@ -97,6 +97,10 @@ fighter_details_column_names:
   - FIRST
   - LAST
   - NICKNAME
+  - W
+  - L
+  - D
+  - BELT
   - URL
 
 # column names for fighter tale of the tape
