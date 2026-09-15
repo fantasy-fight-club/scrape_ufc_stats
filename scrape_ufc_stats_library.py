@@ -30,7 +30,7 @@ def get_soup(url: str) -> BeautifulSoup:
     '''
 
     # must update this from browser to avoid bot detection
-    fmc = '1785621843.e9e7d8c6d15c5477e8f8a61ed7b439f34bec5dbf406040ca9ef11bd36eb675ea'
+    fmc = '1788784144.0974e8192f9a2ff38863c1a5ad239774ff34f71f4f3b170fffe305982c2e69ec'
     
     # get page of url
     page = requests.get(url, cookies={'_fmc': fmc})
@@ -206,8 +206,19 @@ def parse_fight_results(soup: BeautifulSoup) -> List[str]:
     fight_results.append(fight_head.text)
 
     # parse if fight is title or non-title
-    is_title = fight_head.find('img') is not None or 'title' in fight_head.text.lower()
+    is_title = fight_head.find('img', src=re.compile(r'(?:^|/)belt\.png(?:\?.*)?$')) is not None
     fight_results.append('IS TITLE:' + str(is_title))
+
+    # parse fight bonuses; multiple bonus icons may be present
+    bonus_icons = {
+        'FIGHT': 'fight.png',
+        'PERF': 'perf.png',
+        'SUB': 'sub.png',
+        'KO': 'ko.png'
+    }
+    image_sources = [image.get('src', '').split('?', 1)[0] for image in fight_head.find_all('img')]
+    bonuses = [bonus for bonus, icon in bonus_icons.items() if any(source.endswith(icon) for source in image_sources)]
+    fight_results.append('BONUSES:' + ', '.join(bonuses))
 
     # parse win method
     fight_results.append(soup.find('i', class_='b-fight-details__text-item_first').text)

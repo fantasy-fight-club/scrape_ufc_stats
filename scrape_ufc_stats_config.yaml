@@ -27,6 +27,7 @@ fight_results_column_names:
   - OUTCOME
   - WEIGHTCLASS
   - IS TITLE
+  - BONUSES
   - METHOD
   - ROUND
   - TIME
