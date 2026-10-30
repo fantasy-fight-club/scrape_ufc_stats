@@ -30,7 +30,7 @@ def get_soup(url: str) -> BeautifulSoup:
     '''
 
     # must update this from browser to avoid bot detection
-    fmc = '1790616944.57d94b460b3bbc310c0aa60366a48f9c25ad47c117198b932ed314577a9ad937'
+    fmc = '1792844994.9a5dbd562cabe94b3e41a9cdabbc8a03817c810fda02645e3a922c204c6d149f'
     
     # get page of url
     page = requests.get(url, cookies={'_fmc': fmc})
