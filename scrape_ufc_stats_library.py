@@ -166,6 +166,106 @@ def parse_fight_details(soup: BeautifulSoup, event_url: str) -> pd.DataFrame:
 
 
 
+# parse upcoming event details
+def parse_upcoming_event_details(soup: BeautifulSoup) -> pd.DataFrame:
+    '''
+    parse upcoming event details from soup of the upcoming events page
+    includes names, urls, dates, locations of events
+    each table row is read as a unit so a missing cell cannot shift the columns
+    unlike the completed events page, there is no upcoming event to drop
+    return details as a df
+
+    arguments:
+    soup (html): output of get_soup()
+
+    returns:
+    a dataframe of upcoming event details
+    '''
+
+    # create empty list to store event details
+    event_details = []
+
+    # loop through each event row, skipping header and spacer rows without an event link
+    for row in soup.find_all('tr', class_='b-statistics__table-row'):
+        link = row.find('a', class_='b-link b-link_style_black')
+        if link is None:
+            continue
+        date = row.find('span', class_='b-statistics__date')
+        location = row.find('td', class_='b-statistics__table-col b-statistics__table-col_style_big-top-padding')
+        event_details.append({
+            'EVENT':link.text.strip(),
+            'URL':link['href'],
+            'DATE':date.text.strip() if date else '',
+            'LOCATION':location.text.strip() if location else ''
+        })
+
+    # create df to store event details
+    event_details_df = pd.DataFrame(event_details, columns=['EVENT', 'URL', 'DATE', 'LOCATION'])
+
+    # return
+    return event_details_df
+
+
+
+# parse upcoming fight details
+def parse_upcoming_fight_details(soup: BeautifulSoup, event_url: str, upcoming_fight_details_column_names: List[str]) -> pd.DataFrame:
+    '''
+    parse the bouts of an upcoming event from soup of its event page
+    everything comes from the event page, so fight pages are not requested
+    fighters are listed red corner first, as on the fight's matchup page
+    weight class is written in the same format as fight results, e.g. 'UFC Heavyweight Title Bout'
+    bout order 1 is the main event
+    return a df of the upcoming fights of an event, empty if no bouts are announced yet
+
+    arguments:
+    soup (html): output of get_soup()
+    event_url (str): url of the event page
+    upcoming_fight_details_column_names (list): list of column names for upcoming fight details
+
+    returns:
+    a df of upcoming fight details
+    '''
+
+    # get event name
+    event_name = soup.find('h2', class_='b-content__title').text.strip()
+
+    # create empty list to store fights
+    fights_in_event = []
+    # loop through each bout, in page order
+    for bout_order, row in enumerate(soup.find_all('tr', class_='b-fight-details__table-row b-fight-details__table-row__hover js-fight-details-click'), start=1):
+        cols = row.find_all('td')
+
+        # parse fighters' name and url, red corner first
+        fighter_links = [tag for tag in cols[1].find_all('a') if 'fighter-details' in tag.get('href', '')]
+        fighters_names = [tag.text.strip() for tag in fighter_links]
+        fighters_urls = [tag['href'] for tag in fighter_links]
+
+        # weight class column, with a belt image for title fights
+        weight_class = cols[6].text.strip()
+        is_title = cols[6].find('img', src=re.compile('belt')) is not None
+
+        fights_in_event.append({
+            'EVENT':event_name,
+            'BOUT':' vs. '.join(fighters_names),
+            'BOUT_ORDER':bout_order,
+            'WEIGHTCLASS':f'UFC {weight_class} Title Bout' if is_title else f'{weight_class} Bout',
+            'IS TITLE':is_title,
+            'RED FIGHTER':fighters_names[0] if len(fighters_names) > 0 else '',
+            'BLUE FIGHTER':fighters_names[1] if len(fighters_names) > 1 else '',
+            'RED_FIGHTER_URL':fighters_urls[0] if len(fighters_urls) > 0 else '',
+            'BLUE_FIGHTER_URL':fighters_urls[1] if len(fighters_urls) > 1 else '',
+            'URL':row['data-link'],
+            'EVENT_URL':event_url
+        })
+
+    # create df to store fights
+    fight_details_df = pd.DataFrame(fights_in_event, columns=upcoming_fight_details_column_names)
+
+    # return
+    return fight_details_df
+
+
+
 # parse fight results from soup
 def parse_fight_results(soup: BeautifulSoup) -> List[str]:
     '''
