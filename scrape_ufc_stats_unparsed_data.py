@@ -35,33 +35,47 @@ parsed_event_details_df = pd.read_csv(config['event_details_file_name'])
 # read existing fight details to verify completeness
 parsed_fight_details_df = pd.read_csv(config['fight_details_file_name'])
 
+# events are matched by url, not name: ufcstats sometimes renames an event,
+# and matching by name would parse a renamed event again and duplicate its fights
 # get list of events that have been parsed (have event details)
-list_of_events_with_event_details = list(parsed_event_details_df['EVENT'])
+list_of_event_urls_with_event_details = list(parsed_event_details_df['URL'])
 # get list of events that have fight details (complete parsing)
-list_of_events_with_fight_details = list(parsed_fight_details_df['EVENT'].unique())
+list_of_event_urls_with_fight_details = list(parsed_fight_details_df['EVENT_URL'].unique())
 
 # get soup
 soup = LIB.get_soup(config['completed_events_all_url'])
 # parse event details
 updated_event_details_df = LIB.parse_event_details(soup)
-# get list of all event names
-list_of_all_events = list(updated_event_details_df['EVENT'])
+# get event name by url
+event_names_by_url = dict(zip(updated_event_details_df['URL'], updated_event_details_df['EVENT']))
 
 # find events that are completely new (not in event details at all)
-list_of_new_events = [event for event in list_of_all_events 
-                      if event not in list_of_events_with_event_details]
+list_of_new_event_urls = [url for url in updated_event_details_df['URL']
+                          if url not in list_of_event_urls_with_event_details]
 
 # find events that have event details but no fight details (incomplete parsing)
-list_of_incomplete_events = [event for event in list_of_events_with_event_details 
-                             if event not in list_of_events_with_fight_details]
+list_of_incomplete_event_urls = [url for url in list_of_event_urls_with_event_details
+                                 if url not in list_of_event_urls_with_fight_details]
 
 # combine both lists to get all events that need parsing
-list_of_unparsed_events = list_of_new_events + list_of_incomplete_events
+list_of_unparsed_event_urls = list_of_new_event_urls + list_of_incomplete_event_urls
+
+# find events that have been renamed since they were parsed
+parsed_event_names_by_url = dict(zip(parsed_event_details_df['URL'], parsed_event_details_df['EVENT']))
+list_of_renamed_event_urls = [url for url, name in event_names_by_url.items()
+                              if url in parsed_event_names_by_url and parsed_event_names_by_url[url] != name]
+if list_of_renamed_event_urls:
+    print('### Renamed events: ###')
+    print('\n')
+    print([f'{parsed_event_names_by_url[url]} -> {event_names_by_url[url]}' for url in list_of_renamed_event_urls])
+    print('\n')
+    # write event details to file so the new names are kept
+    updated_event_details_df.to_csv(config['event_details_file_name'], index=False)
 
 # check if there are any unparsed events
 unparsed_events = False
-# if list_of_unparsed_events is empty then all available events have been parsed
-if not list_of_unparsed_events:
+# if list_of_unparsed_event_urls is empty then all available events have been parsed
+if not list_of_unparsed_event_urls:
     print('### All available events have been fully parsed. ###')
     print('\n')
 else:
@@ -70,11 +84,11 @@ else:
     # show list of unparsed events
     print('### There are unparsed or incomplete events. ###')
     print('\n')
-    if list_of_new_events:
-        print(f'New events (not in event details): {list_of_new_events}')
+    if list_of_new_event_urls:
+        print(f'New events (not in event details): {[event_names_by_url[url] for url in list_of_new_event_urls]}')
         print('\n')
-    if list_of_incomplete_events:
-        print(f'Incomplete events (no fight details): {list_of_incomplete_events}')
+    if list_of_incomplete_event_urls:
+        print(f'Incomplete events (no fight details): {[event_names_by_url.get(url, url) for url in list_of_incomplete_event_urls]}')
         print('\n')
     # write event details to file
     updated_event_details_df.to_csv(config['event_details_file_name'], index=False)
@@ -96,7 +110,7 @@ if unparsed_events:
     print('\n')
 
     # define list of urls of missing fights to parse
-    list_of_unparsed_events_urls = list(updated_event_details_df['URL'].loc[(updated_event_details_df['EVENT'].isin(list_of_unparsed_events))])
+    list_of_unparsed_events_urls = list(updated_event_details_df['URL'].loc[(updated_event_details_df['URL'].isin(list_of_unparsed_event_urls))])
 
     # create empty df to store fight details
     unparsed_fight_details_df = pd.DataFrame(columns=config['fight_details_column_names'])
@@ -113,12 +127,11 @@ if unparsed_events:
         # concat update fight details to the top of existing df
         unparsed_fight_details_df = pd.concat([unparsed_fight_details_df, fight_details_df])
 
-    # For incomplete events, remove old incomplete data before adding new data
-    if list_of_incomplete_events:
-        # Remove incomplete events from existing data
-        parsed_fight_details_df = parsed_fight_details_df[~parsed_fight_details_df['EVENT'].isin(list_of_incomplete_events)]
-        parsed_fight_results_df = parsed_fight_results_df[~parsed_fight_results_df['EVENT'].isin(list_of_incomplete_events)]
-        parsed_fight_stats_df = parsed_fight_stats_df[~parsed_fight_stats_df['EVENT'].isin(list_of_incomplete_events)]
+    # Remove any existing data for the events being parsed before adding new data,
+    # so an event parsed again (e.g. incomplete before) is never in the files twice
+    parsed_fight_details_df = parsed_fight_details_df[~parsed_fight_details_df['EVENT_URL'].isin(list_of_unparsed_event_urls)]
+    parsed_fight_results_df = parsed_fight_results_df[~parsed_fight_results_df['EVENT_URL'].isin(list_of_unparsed_event_urls)]
+    parsed_fight_stats_df = parsed_fight_stats_df[~parsed_fight_stats_df['EVENT_URL'].isin(list_of_unparsed_event_urls)]
 
     # concat unparsed and parsed fight details
     parsed_fight_details_df = pd.concat([unparsed_fight_details_df, parsed_fight_details_df])

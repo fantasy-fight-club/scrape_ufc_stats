@@ -1,5 +1,6 @@
 # urls to parse
 completed_events_all_url: http://ufcstats.com/statistics/events/completed?page=all
+upcoming_events_all_url: http://ufcstats.com/statistics/events/upcoming?page=all
 
 # file names for parsed data
 event_details_file_name: ufc_event_details.csv
@@ -8,11 +9,28 @@ fight_results_file_name: ufc_fight_results.csv
 fight_stats_file_name: ufc_fight_stats.csv
 fighter_details_file_name: ufc_fighter_details.csv
 fighter_tott_file_name: ufc_fighter_tott.csv
+# upcoming events, replaced on every run of scrape_ufc_stats_upcoming.py
+upcoming_event_details_file_name: ufc_upcoming_event_details.csv
+upcoming_fight_details_file_name: ufc_upcoming_fight_details.csv
 
 # columns names for extracted details
 fight_details_column_names:
   - EVENT
   - BOUT
+  - RED FIGHTER
+  - BLUE FIGHTER
+  - RED_FIGHTER_URL
+  - BLUE_FIGHTER_URL
+  - URL
+  - EVENT_URL
+
+# column names for upcoming fight details
+upcoming_fight_details_column_names:
+  - EVENT
+  - BOUT
+  - BOUT_ORDER
+  - WEIGHTCLASS
+  - IS TITLE
   - RED FIGHTER
   - BLUE FIGHTER
   - RED_FIGHTER_URL
