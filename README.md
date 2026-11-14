@@ -37,3 +37,14 @@ Do [feel free to reach out](https://www.linkedin.com/in/russellchanws/) with any
 The script `scrape_ufc_stats_unparsed_data.py` has been deployed to Google Cloud Platform (GCP) as a Cloud Run Job and will run daily via Cloud Scheduler to check and scrape new fights and fighters, then push the refreshed data files to this repository.
 
 This keeps the data files up to date with the latest fight and fighter stats, and you can quickly download and use the CSV files above without running any code.
+
+## Upcoming Events
+
+The script `scrape_ufc_stats_upcoming.py` scrapes every upcoming event and its announced bouts into:
+
+- ufc_upcoming_event_details.csv: event, URL, date and location
+- ufc_upcoming_fight_details.csv: one row per bout in card order (`BOUT_ORDER` 1 is the main event), with weight class, title fight and both fighters (red corner first)
+
+Run `scrape_ufc_stats_unparsed_data.py` first, so every fighter on an upcoming card is already in the fighter files; the upcoming script warns about any that aren't.
+
+These two files are a snapshot of the current cards and are replaced on every run: cancelled bouts drop out and replaced opponents change in place. Once an event has taken place, the next run of `scrape_ufc_stats_unparsed_data.py` adds it to the completed files.
