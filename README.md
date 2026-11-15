@@ -48,3 +48,13 @@ The script `scrape_ufc_stats_upcoming.py` scrapes every upcoming event and its a
 Run `scrape_ufc_stats_unparsed_data.py` first, so every fighter on an upcoming card is already in the fighter files; the upcoming script warns about any that aren't.
 
 These two files are a snapshot of the current cards and are replaced on every run: cancelled bouts drop out and replaced opponents change in place. Once an event has taken place, the next run of `scrape_ufc_stats_unparsed_data.py` adds it to the completed files.
+
+## Live Events
+
+On fight night, ufcstats lists the event as completed as soon as it starts, while most of its fights are still to come. `scrape_ufc_stats_unparsed_data.py` can run during the event:
+
+- Finished fights are saved with their result and stats, as usual.
+- A fight in progress is saved with the stats of the rounds so far, and a blank outcome, method, round and time.
+- A fight that hasn't started is saved in `ufc_fight_details.csv` only, with no result or stats.
+
+An event with any fight still missing a result is parsed again on every run, until all of its fights have finished, so the script can be re-run (or scheduled) every few minutes during the event. Pass `--skip-fighters` to skip the new-fighter check (26 extra page requests) on these runs. Don't re-run `scrape_ufc_stats_upcoming.py` during the event: the importer takes the weight class and rounds of fights that haven't finished from the upcoming card.

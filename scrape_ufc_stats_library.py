@@ -266,6 +266,57 @@ def parse_upcoming_fight_details(soup: BeautifulSoup, event_url: str, upcoming_f
 
 
 
+# fight statuses, from get_fight_status()
+FIGHT_FINISHED = 'finished'
+FIGHT_IN_PROGRESS = 'in progress'
+FIGHT_NOT_STARTED = 'not started'
+
+
+
+# check if a fight page has round-by-round stats tables
+def has_fight_stats(soup: BeautifulSoup) -> bool:
+    '''
+    check if a fight page has stats tables (the 'Totals' section)
+    a fight that hasn't started shows a matchup page (tale of the tape) instead,
+    whose table cells look like stats and must not be parsed as stats
+
+    arguments:
+    soup (html): output of get_soup() of a fight page
+
+    returns:
+    true if the page has stats tables
+    '''
+
+    return any(tag.text.strip() == 'Totals' for tag in soup.find_all('p', class_='b-fight-details__collapse-link_tot'))
+
+
+
+# get the status of a fight from its page
+def get_fight_status(soup: BeautifulSoup) -> str:
+    '''
+    get the status of a fight from soup of its fight page
+    during a live event, ufcstats lists the event as completed while some of its fights are still to come
+    finished: both fighters have an outcome (w, l, d or nc) and the page shows the method
+    in progress: no outcome yet, but the page has stats for the rounds so far
+    not started: no outcome and no stats, the page only shows the matchup
+
+    arguments:
+    soup (html): output of get_soup() of a fight page
+
+    returns:
+    FIGHT_FINISHED, FIGHT_IN_PROGRESS or FIGHT_NOT_STARTED
+    '''
+
+    outcomes = [tag.text.strip() for tag in soup.find_all('i', class_='b-fight-details__person-status')]
+    method = soup.find('i', class_='b-fight-details__text-item_first')
+    if len(outcomes) == 2 and all(outcomes) and method is not None:
+        return FIGHT_FINISHED
+    if has_fight_stats(soup):
+        return FIGHT_IN_PROGRESS
+    return FIGHT_NOT_STARTED
+
+
+
 # parse fight results from soup
 def parse_fight_results(soup: BeautifulSoup) -> List[str]:
     '''
@@ -321,18 +372,26 @@ def parse_fight_results(soup: BeautifulSoup) -> List[str]:
     fight_results.append('BONUSES:' + ', '.join(bonuses))
 
     # parse win method
-    fight_results.append(soup.find('i', class_='b-fight-details__text-item_first').text)
+    # a fight that hasn't finished yet has no result section, so its result fields are left blank
+    method = soup.find('i', class_='b-fight-details__text-item_first')
+    fight_results.append(method.text if method else 'Method:')
 
     # parse remaining results
     # includes round, time, time format, referee, details
     remaining_results = soup.find_all('p', class_='b-fight-details__text')
 
     # parse round, time, time format, referee
-    for tag in remaining_results[0].find_all('i', class_='b-fight-details__text-item'):
-        fight_results.append(tag.text.strip())
+    # read by label, so a fight in progress that only shows some of them can't shift the columns
+    result_items = {}
+    if remaining_results:
+        for tag in remaining_results[0].find_all('i', class_='b-fight-details__text-item'):
+            text = tag.text.strip()
+            result_items[text.split(':', 1)[0].strip()] = text
+    for label in ['Round', 'Time', 'Time format', 'Referee']:
+        fight_results.append(result_items.get(label, label + ':'))
 
     # parse details
-    fight_results.append(remaining_results[1].get_text())
+    fight_results.append(remaining_results[1].get_text() if len(remaining_results) > 1 else 'Details:')
 
     # append individual red/blue fighter names and urls
     fight_results.append('RED FIGHTER:' + (fighter_links[0].text.strip() if len(fighter_links) > 0 else ''))
@@ -372,8 +431,9 @@ def organise_fight_results(results_from_soup: List[str], fight_results_column_na
     fight_results_clean.append(results_from_soup[0])
     # join fighters name into one, e.g. fighter_a vs. fighter_b
     fight_results_clean.append(' vs. '.join(results_from_soup[1:3]))
-    # join outcome as 'w/l' or 'l/w'
-    fight_results_clean.append('/'.join(results_from_soup[3:5]))
+    # join outcome as 'w/l' or 'l/w', left blank while the fight has no result
+    outcome = results_from_soup[3:5]
+    fight_results_clean.append('/'.join(outcome) if all(o.strip() for o in outcome) else '')
     # remove label of results using regex
     # regrex, at the start of the string remove all characterts up to the first ':' 
     # remove and a single ' ', if any,  after the ':'
@@ -411,6 +471,10 @@ def parse_fight_stats(soup: BeautifulSoup) -> Tuple[List[str], List[str]]:
     # create empty list to store each fighter's stats
     fighter_a_stats = []
     fighter_b_stats = []
+
+    # a page without stats tables (old fights, or a fight that hasn't started) has no stats
+    if not has_fight_stats(soup):
+        return fighter_a_stats, fighter_b_stats
 
     # loop through soup to find all 'td' tags with the class 'b-fight-details__table-col'
     for tag in soup.find_all('td', class_='b-fight-details__table-col'):
