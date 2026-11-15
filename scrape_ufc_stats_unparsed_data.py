@@ -11,9 +11,20 @@ combine new data and existing data into one and write to file
 
 this notebook can be run manually when desired
 the script, 'scrape_ufc_stats_unparsed_data.py' is the same code that can be set to run on a schedule
+
+live events
+during an event, ufcstats already lists it as completed while some fights are still to come
+fights that have finished are saved with their result and stats
+a fight in progress is saved with the stats of the rounds so far and a blank result
+a fight that hasn't started is saved in fight details only, with no result or stats
+an event with any fight still missing a result is parsed again on every run, until all of its fights have finished
+
+options
+--skip-fighters: skip checking for new fighters (26 extra page requests), e.g. when re-running often during a live event
 '''
 
 # imports
+import sys
 import pandas as pd
 from tqdm import tqdm
 
@@ -23,6 +34,9 @@ import scrape_ufc_stats_library as LIB
 # import config
 import yaml
 config = yaml.safe_load(open('scrape_ufc_stats_config.yaml'))
+
+# options
+skip_fighters = '--skip-fighters' in sys.argv
 
 
 
@@ -34,6 +48,8 @@ print('\n')
 parsed_event_details_df = pd.read_csv(config['event_details_file_name'])
 # read existing fight details to verify completeness
 parsed_fight_details_df = pd.read_csv(config['fight_details_file_name'])
+# read existing fight results to find fights without a result yet
+parsed_fight_results_df = pd.read_csv(config['fight_results_file_name'])
 
 # events are matched by url, not name: ufcstats sometimes renames an event,
 # and matching by name would parse a renamed event again and duplicate its fights
@@ -57,8 +73,19 @@ list_of_new_event_urls = [url for url in updated_event_details_df['URL']
 list_of_incomplete_event_urls = [url for url in list_of_event_urls_with_event_details
                                  if url not in list_of_event_urls_with_fight_details]
 
-# combine both lists to get all events that need parsing
-list_of_unparsed_event_urls = list_of_new_event_urls + list_of_incomplete_event_urls
+# find live events: events parsed while some of their fights were in progress or still to come
+# a fight is finished once it has a result row with a method
+list_of_finished_fight_urls = set(parsed_fight_results_df['URL'].loc[
+    parsed_fight_results_df['METHOD'].fillna('').astype(str).str.strip() != ''
+])
+list_of_live_event_urls = list(parsed_fight_details_df['EVENT_URL'].loc[
+    ~parsed_fight_details_df['URL'].isin(list_of_finished_fight_urls)
+].unique())
+list_of_live_event_urls = [url for url in list_of_live_event_urls
+                           if url not in list_of_new_event_urls and url not in list_of_incomplete_event_urls]
+
+# combine all lists to get all events that need parsing
+list_of_unparsed_event_urls = list_of_new_event_urls + list_of_incomplete_event_urls + list_of_live_event_urls
 
 # find events that have been renamed since they were parsed
 parsed_event_names_by_url = dict(zip(parsed_event_details_df['URL'], parsed_event_details_df['EVENT']))
@@ -89,6 +116,9 @@ else:
         print('\n')
     if list_of_incomplete_event_urls:
         print(f'Incomplete events (no fight details): {[event_names_by_url.get(url, url) for url in list_of_incomplete_event_urls]}')
+        print('\n')
+    if list_of_live_event_urls:
+        print(f'Live events (fights without a result yet): {[event_names_by_url.get(url, url) for url in list_of_live_event_urls]}')
         print('\n')
     # write event details to file
     updated_event_details_df.to_csv(config['event_details_file_name'], index=False)
@@ -158,6 +188,9 @@ if unparsed_events:
     # create empty df to store fight stats
     unparsed_fight_stats_df = pd.DataFrame(columns=config['fight_stats_column_names'])
 
+    # count fights by status for each event, to show what is still to come in live events
+    fight_statuses_by_event_url = {}
+
     # loop through each fight and parse fight results and stats
     for url in tqdm(list_of_unparsed_fight_details_urls):
         # get soup
@@ -165,6 +198,12 @@ if unparsed_events:
 
         # get event url for this fight
         event_url = fight_to_event_url.get(url, '')
+
+        # a fight that hasn't started has no result or stats yet, it stays in fight details only
+        fight_status = LIB.get_fight_status(soup)
+        fight_statuses_by_event_url.setdefault(event_url, []).append(fight_status)
+        if fight_status == LIB.FIGHT_NOT_STARTED:
+            continue
 
         # parse fight results and fight stats
         fight_results_df, fight_stats_df = LIB.parse_organise_fight_results_and_stats(
@@ -194,9 +233,21 @@ if unparsed_events:
     print(unparsed_fight_stats_df)
     print('\n')
 
+    # show events that are still live, they are parsed again on the next run
+    for event_url, fight_statuses in fight_statuses_by_event_url.items():
+        if any(status != LIB.FIGHT_FINISHED for status in fight_statuses):
+            counts = ', '.join(f'{fight_statuses.count(status)} {status}'
+                               for status in [LIB.FIGHT_FINISHED, LIB.FIGHT_IN_PROGRESS, LIB.FIGHT_NOT_STARTED])
+            print(f'### Live event: {event_names_by_url.get(event_url, event_url)}: {counts}. ###')
+            print('\n')
+
 
 
 ### check if there are any unparsed fighters ###
+if skip_fighters:
+    print('### Skipping fighters (--skip-fighters). ###')
+    sys.exit(0)
+
 print('### Checking for unparsed fighters... ###')
 print('\n')
 
